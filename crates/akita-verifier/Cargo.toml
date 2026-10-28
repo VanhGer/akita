@@ -29,6 +29,7 @@ akita-transcript = { version = "0.1.0", path = "../akita-transcript", default-fe
 akita-types = { version = "0.1.0", path = "../akita-types", default-features = false }
 akita-params = { version = "0.1.0", path = "../akita-params", default-features = false }
 tracing = "0.1"
+opcount = { path = "../../profile/verifier-opcount/counter", optional = true }
 rayon = { version = "1.10", optional = true }
 
 [features]
@@ -50,6 +51,8 @@ transcript-keccak = [
   "akita-params/transcript-keccak",
 ]
 benchmark-support = []
+# Per-step operation counts; built only by `profile/verifier-opcount`.
+opcount = ["dep:opcount", "akita-challenges/opcount"]
 parallel = [
   "dep:rayon",
   "akita-algebra/parallel",

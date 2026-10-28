@@ -314,6 +314,8 @@ where
             setup_prefix_opening: output.setup_prefix_opening,
         };
     }
+    #[cfg(feature = "opcount")]
+    let _section = opcount::section("terminal");
     verify_terminal_suffix(
         terminal_ntt,
         grinding,

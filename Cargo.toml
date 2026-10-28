@@ -22,7 +22,7 @@ members = [
 # `rust-toolchain.toml` (channel 1.95 + RISC-V targets) and applies Jolt's
 # `[patch.crates-io]` overrides for `arkworks-algebra`. Keep it out of this
 # workspace's resolution graph.
-exclude = ["profile/akita-recursion", "fuzz"]
+exclude = ["profile/akita-recursion", "profile/verifier-opcount", "fuzz"]
 resolver = "2"
 
 [workspace.metadata.cargo-machete]

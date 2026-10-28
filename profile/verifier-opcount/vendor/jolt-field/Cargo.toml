@@ -1,0 +1,35 @@
+# Copy of jolt-field at jolt rev 1618f4b6dc97effcec3568ca7cf2b7420ac9e75f with
+# `opcount::bump` calls on the fp128 arithmetic entry points. Workspace
+# inheritance is replaced by the versions from that jolt workspace.
+[package]
+name = "jolt-field"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Shared field abstractions with BN254 and Solinas backends (op-counting copy)"
+
+[dependencies]
+ark-ff = { git = "https://github.com/a16z/arkworks-algebra", branch = "dev/twist-shout", default-features = false, optional = true }
+ark-serialize = { git = "https://github.com/a16z/arkworks-algebra", branch = "dev/twist-shout", default-features = false, optional = true }
+ark-bn254 = { git = "https://github.com/a16z/arkworks-algebra", branch = "dev/twist-shout", default-features = false, features = ["curve"], optional = true }
+num-traits = { version = "0.2.19", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+allocative = { version = "=0.3.6", optional = true }
+rand_core = { version = "0.6.4", default-features = false }
+rayon = { version = "^1.12.0", optional = true }
+thiserror = "2.0.18"
+opcount = { path = "../../counter" }
+
+[features]
+default = ["bn254"]
+bn254 = ["dep:ark-ff", "dep:ark-serialize", "dep:ark-bn254"]
+solinas = []
+asm = []
+fuzzing = ["asm"]
+parallel = ["dep:rayon"]
+allocative = ["dep:allocative"]
+fp128-proof-linkage = ["asm"]
+fp64-proof-linkage = []
+
+[build-dependencies]
+cc = "1.2"

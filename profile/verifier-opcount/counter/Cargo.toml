@@ -1,0 +1,6 @@
+[package]
+name = "opcount"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Operation counters for measuring the Akita verifier"

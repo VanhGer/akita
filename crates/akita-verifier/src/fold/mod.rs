@@ -68,6 +68,22 @@ pub(crate) struct FoldVerifyOutput<F: Field, E: Field> {
 /// Stage order is the transcript order: fold response, fold challenges,
 /// successor witness, ring switch, Stage 1, Stage 2 rounds, Stage 3, and the
 /// Stage 2 output check, which needs the Stage 3 setup claim.
+/// With the `opcount` feature, records the operation counts of one verifier
+/// step under `L<level> <name>`; otherwise expands to the step itself.
+#[cfg(feature = "opcount")]
+macro_rules! step {
+    ($level:expr, $name:expr, $body:expr) => {{
+        let _section = opcount::section(format!("L{} {}", $level, $name));
+        $body
+    }};
+}
+#[cfg(not(feature = "opcount"))]
+macro_rules! step {
+    ($level:expr, $name:expr, $body:expr) => {
+        $body
+    };
+}
+
 #[inline(never)]
 pub(crate) fn verify_fold<F, E>(
     setup: &AkitaVerifierSetup<F>,
@@ -80,44 +96,65 @@ where
 {
     let level = prepared.level;
     let relation_geometry = validate_fold_payloads(&prepared)?;
-    grinding.read_fold_response(akita_params::GrindingSite::FoldResponse { level })?;
-    let group_challenges = derive_multi_group_stage1_challenges::<F, E>(
-        grinding,
+    let group_challenges = step!(level, "01 fold challenges", {
+        grinding.read_fold_response(akita_params::GrindingSite::FoldResponse { level })?;
+        derive_multi_group_stage1_challenges::<F, E>(
+            grinding,
+            level,
+            &prepared.opening_shape,
+            prepared.lp,
+        )?
+    });
+    let relation_instance = step!(
         level,
-        &prepared.opening_shape,
-        prepared.lp,
-    )?;
-    let relation_instance =
-        assemble_relation_instance(&prepared, &relation_geometry, group_challenges)?;
-    let next_witness = receive_next_witness(grinding, &prepared)?;
-    let rs = ring_switch_verifier::<F, E>(
-        &RingSwitchReplay {
-            setup: setup.expanded(),
-            relation: &relation_instance,
-            row_coefficients: &prepared.prefix.row_coefficients,
-            lp: prepared.lp,
-            opening_source_len: prepared.next_opening_source_len,
-            opening_ring_dim: prepared.next_witness_ring_dim,
-        },
-        prepared.w_len,
-        grinding,
+        "02 relation instance",
+        assemble_relation_instance(&prepared, &relation_geometry, group_challenges)?
+    );
+    let next_witness = step!(
         level,
-    )?;
-    let relation = prepare_relation_claim::<F, E>(
-        prepared.lp,
-        relation_geometry,
-        &relation_instance,
-        &prepared.prefix,
-        &rs,
-    )?;
-    let stage1 = verify_stage1::<F, E>(
-        &rs,
-        prepared.lp,
-        &relation.range_image_plan,
-        grinding,
+        "03 receive next witness",
+        receive_next_witness(grinding, &prepared)?
+    );
+    let rs = step!(
         level,
-        &prepared.level_layout,
-    )?;
+        "04 ring switch",
+        ring_switch_verifier::<F, E>(
+            &RingSwitchReplay {
+                setup: setup.expanded(),
+                relation: &relation_instance,
+                row_coefficients: &prepared.prefix.row_coefficients,
+                lp: prepared.lp,
+                opening_source_len: prepared.next_opening_source_len,
+                opening_ring_dim: prepared.next_witness_ring_dim,
+            },
+            prepared.w_len,
+            grinding,
+            level,
+        )?
+    );
+    let relation = step!(
+        level,
+        "05 relation claim",
+        prepare_relation_claim::<F, E>(
+            prepared.lp,
+            relation_geometry,
+            &relation_instance,
+            &prepared.prefix,
+            &rs,
+        )?
+    );
+    let stage1 = step!(
+        level,
+        "06 stage 1 sumcheck",
+        verify_stage1::<F, E>(
+            &rs,
+            prepared.lp,
+            &relation.range_image_plan,
+            grinding,
+            level,
+            &prepared.level_layout,
+        )?
+    );
     let stage2_span = tracing::info_span!(
         "stage2_verifier",
         level,
@@ -125,44 +162,60 @@ where
         reduced = prepared.lp.ring_relation_mode.is_reduced_evaluation(),
     )
     .entered();
-    let opening_semantics = prepare_opening_semantics::<F, E>(
-        &OpeningSemanticsInput {
-            lp: prepared.lp,
-            opening_batch: relation_instance.opening_batch(),
-            w_len: prepared.w_len,
-            evaluation_trace_basis: prepared.evaluation_trace_basis,
-            prefix: &prepared.prefix,
-        },
-        &rs,
-        &relation,
-    )?;
-    let stage2_rounds = replay_stage2::<F, E>(
-        grinding,
+    let opening_semantics = step!(
         level,
-        &stage1,
-        relation.claim,
-        &opening_semantics,
-        prepared.level_layout.stage2_sumcheck(),
-    )?;
-    let stage3 = match prepared.stage3 {
-        Some(next_params) => Some(verify_stage3::<F, E>(
-            setup,
+        "07 opening semantics",
+        prepare_opening_semantics::<F, E>(
+            &OpeningSemanticsInput {
+                lp: prepared.lp,
+                opening_batch: relation_instance.opening_batch(),
+                w_len: prepared.w_len,
+                evaluation_trace_basis: prepared.evaluation_trace_basis,
+                prefix: &prepared.prefix,
+            },
             &rs,
-            &stage2_rounds.challenges,
-            next_params,
+            &relation,
+        )?
+    );
+    let stage2_rounds = step!(
+        level,
+        "08 stage 2 rounds",
+        replay_stage2::<F, E>(
             grinding,
             level,
-        )?),
-        None => None,
-    };
-    let stage2 = validate_stage2_replay(
-        setup,
-        stage1,
-        &rs,
-        stage3.as_ref().map(|replay| replay.claim),
-        opening_semantics,
-        stage2_rounds,
-    )?;
+            &stage1,
+            relation.claim,
+            &opening_semantics,
+            prepared.level_layout.stage2_sumcheck(),
+        )?
+    );
+    let stage3 = step!(
+        level,
+        "09 stage 3",
+        match prepared.stage3 {
+            Some(next_params) => Some(verify_stage3::<F, E>(
+                setup,
+                &rs,
+                &stage2_rounds.challenges,
+                next_params,
+                grinding,
+                level,
+            )?),
+            None => None,
+        }
+    );
+    let stage2 = step!(
+        level,
+        "10 stage 2 final check",
+        validate_stage2_replay(
+            setup,
+            stage1,
+            &rs,
+            stage3.as_ref().map(|replay| replay.claim),
+            opening_semantics,
+            stage2_rounds,
+        )?
+    );
     drop(stage2_span);
     Ok(FoldVerifyOutput {
         challenges: stage2.point,

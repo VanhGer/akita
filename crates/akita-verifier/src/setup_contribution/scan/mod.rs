@@ -31,6 +31,8 @@ impl<E: Field> DirectScan<E> {
         F: Field + CanonicalEncoding,
         E: ExtField<F> + MulBaseUnreduced<F>,
     {
+        #[cfg(feature = "opcount")]
+        let _section = opcount::section("setup scan (DirectScan, inside step 10)");
         let plan = &self.plan;
         match &self.mode {
             DirectScanMode::Lifted { alpha, groups } => {

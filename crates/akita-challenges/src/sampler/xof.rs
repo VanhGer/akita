@@ -33,6 +33,8 @@ impl IndexedXofPrefix {
         absorb_bytes(&mut state, GROUP_ROOT_LEN, &coordinate_index.to_le_bytes());
         xor_state_byte(&mut state, COORDINATE_INPUT_LEN, SHAKE_DOMAIN_SUFFIX);
         xor_state_byte(&mut state, SHAKE256_RATE - 1, 0x80);
+        #[cfg(feature = "opcount")]
+        opcount::bump(&opcount::KECCAK_F1600);
         keccak::f1600(&mut state);
         IndexedShakeReader { state, pos: 0 }
     }
@@ -58,6 +60,8 @@ impl IndexedShakeReader {
         let mut written = 0;
         while written < out.len() {
             if self.pos == SHAKE256_RATE {
+                #[cfg(feature = "opcount")]
+                opcount::bump(&opcount::KECCAK_F1600);
                 keccak::f1600(&mut self.state);
                 self.pos = 0;
             }

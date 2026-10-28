@@ -1,0 +1,52 @@
+# Sub-workspace that counts the operations of one Akita verification.
+#
+# Excluded from the parent Akita workspace (see the repo-root `Cargo.toml`)
+# because its `[patch]` swaps `jolt-field` and `blake2` for the counting
+# copies in `vendor/`. Ordinary Akita builds never see those copies.
+#
+# Members:
+#   * `counter` — the `opcount` counters and per-step sections.
+#   * `vendor/jolt-field`, `vendor/blake2` — upstream sources with
+#     `opcount::bump` on the fp128 arithmetic and BLAKE2 compression.
+#   * this package — `tests/verifier_opcount.rs`, which proves once and
+#     counts one verification.
+#
+# Run (from this directory):
+#   cargo test --release -- --nocapture
+
+[workspace]
+members = [".", "counter", "vendor/jolt-field", "vendor/blake2"]
+resolver = "2"
+
+[package]
+name = "akita-verifier-opcount"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+publish = false
+description = "Operation counts for one Akita verification"
+
+[dependencies]
+
+[dev-dependencies]
+opcount = { path = "counter" }
+akita-config = { path = "../../crates/akita-config", features = ["test-support"] }
+akita-cpu-backend = { path = "../../crates/akita-cpu-backend" }
+akita-error = { path = "../../crates/akita-error" }
+akita-params = { path = "../../crates/akita-params" }
+akita-pcs = { path = "../../crates/akita-pcs" }
+akita-prover = { path = "../../crates/akita-prover" }
+akita-serialization = { path = "../../crates/akita-serialization" }
+akita-types = { path = "../../crates/akita-types" }
+akita-verifier = { path = "../../crates/akita-verifier", features = ["opcount"] }
+jolt-field = { version = "=0.1.0", git = "https://github.com/a16z/jolt", rev = "1618f4b6dc97effcec3568ca7cf2b7420ac9e75f", default-features = false, features = [
+  "asm",
+  "solinas",
+] }
+rayon = "1.10"
+
+[patch."https://github.com/a16z/jolt"]
+jolt-field = { path = "vendor/jolt-field" }
+
+[patch.crates-io]
+blake2 = { path = "vendor/blake2" }

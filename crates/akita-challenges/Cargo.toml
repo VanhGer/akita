@@ -10,6 +10,7 @@ readme = "../../README.md"
 
 [dependencies]
 akita-error = { version = "0.1.0", path = "../akita-error" }
+opcount = { path = "../../profile/verifier-opcount/counter", optional = true }
 serde = { version = "1", features = ["derive"] }
 jolt-field = { version = "=0.1.0", git = "https://github.com/a16z/jolt", rev = "1618f4b6dc97effcec3568ca7cf2b7420ac9e75f", default-features = false, features = [
   "asm",
@@ -28,6 +29,8 @@ transcript-blake2b = ["akita-transcript/transcript-blake2b"]
 transcript-keccak = ["akita-transcript/transcript-keccak"]
 parallel = ["jolt-field/parallel"]
 logging-transcript = ["akita-transcript/logging-transcript"]
+# Keccak-f1600 counts; built only by `profile/verifier-opcount`.
+opcount = ["dep:opcount"]
 
 [lints]
 workspace = true
